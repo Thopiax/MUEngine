@@ -1,0 +1,11 @@
+version: '2'
+services:
+  db:
+    image: postgres:9.5-alpine
+    ports:
+      - "6868:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - /var/lib/postgres
