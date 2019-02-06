@@ -1,11 +1,15 @@
-import json
+import json, util
+
 from flask import Flask, request
+from flask.ext.sqlalchemy import SQLAlchemy
+import os
+
+LOGGER_SCRIPT = util.load_logger_script()
 
 app = Flask(__name__)
-
-LOGGER_SCRIPT = open("static/logger.js", "r").read()
-
-database = {}
+app.config.from_object(os.environ['APP_SETTINGS'])
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 @app.route('/logger')
 def fetch_logger():
@@ -20,6 +24,8 @@ def register_visit():
   payload = request.data
   app.logger.debug(payload)
 
+
+
   return "Success"
 
 
@@ -28,8 +34,7 @@ def log_events():
   payload = request.form
   app.logger.debug(payload)
 
-  for key, value in payload.items():
-    database[key] = json.loads(value)
+
 
   return "Success"
 

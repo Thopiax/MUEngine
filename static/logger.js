@@ -4,7 +4,7 @@ const DEBUG=true;
 const BASE_URL='http://127.0.0.1:5000';
 const MAX_BUFFER_SIZE=10;
 
-let VISIT_ID = "1";
+let VISIT_ID = "%s";
 
 /*
 Setup Beacon to transmit data
