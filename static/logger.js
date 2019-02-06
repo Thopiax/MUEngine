@@ -1,166 +1,219 @@
+(function() {
 
-// CONSTANTS
-const DEBUG=true;
-const BASE_URL='http://127.0.0.1:5000';
-const MAX_BUFFER_SIZE=10;
+  // CONSTANTS
+  var DEBUG = true;
+  var BASE_URL = "http://127.0.0.1:5000";
+  var MAX_BUFFER_SIZE = 64;
 
-let VISIT_ID = "%s";
+  var pageShowEvent = "pageshow" in window ? "pageshow" : "load";
+  var pageHideEvent = "pagehide" in window ? "pagehide" : "unload";
 
-/*
-Setup Beacon to transmit data
- */
-navigator.sendBeacon = undefined;
-if (typeof navigator.sendBeacon === 'undefined') {
-    navigator.sendBeacon = (URL, payload) => {
-        let xhr = new XMLHttpRequest();
+  var visitId = "%s";
 
-        if ('withCredentials' in xhr) {
-            xhr.open('POST', URL, true);
-        } else if (typeof XDomainRequest != "undefined") {
-            // XDomainRequest for IE.
-            xhr = new XDomainRequest();
-            xhr.open('POST', URL);
+  var sendBeacon = (function() {
+    if ('sendBeacon' in navigator) {
+        return function (URL, data) {
+            const payload = new Blob([JSON.stringify(data)], {type: 'text/plain; charset=UTF-8'})
+            return navigator.sendBeacon(URL, payload);
+        }
+    }
+
+    return function(URL, data) {
+      var xhr = new XMLHttpRequest();
+
+      if ("withCredentials" in xhr) {
+        // No need for credentials
+        xhr.withCredentials = false;
+        xhr.open("POST", URL);
+      } else if (typeof XDomainRequest != "undefined") {
+        // XDomainRequest for IE.
+        xhr = new XDomainRequest();
+        xhr.open("POST", URL);
+      } else {
+        // CORS not allowed
+        return true;
+      }
+
+      var payload = new Blob([JSON.stringify(data)], {
+        type: "application/json"
+      });
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(payload);
+
+      return true;
+    };
+  })();
+
+  var EventBeacon = {
+    send: function send(URL, data) {
+      var payload = { visitId: visitId, data: data };
+      var result = sendBeacon(URL, payload);
+
+      if (DEBUG) {
+        if (result) {
+          console.log("[EventBeacon#send] Successfully sent event data");
         } else {
-            return;
+          console.error("[EventBeacon#send] Error sending event data");
         }
+      }
 
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
-
-        xhr.send(payload);
-    };
-}
-
-
-class EventBeacon {
-
-    constructor () {
-        this.resetBuffer();
-
-        document.addEventListener('pagehide', this.flush());
+      return result;
     }
+  };
 
-    static send(URL, data) {
-        const result = navigator.sendBeacon(URL, data);
+  var BufferedEventLogger = {
+    bufferSize: 0,
+    bufferData: [],
+    addEvent: function addEvent(name, timeStamp, payload) {
+      if (DEBUG) {
+        console.log("[" + timeStamp + "] " + name);
+        if (payload) console.log(payload);
+      }
 
-        if (DEBUG) {
-            if (result) {
-                console.log(`[Beacon#send] Successfully sent events`);
-            } else {
-                console.error(`[Beacon#send] Error sending log data`);
-            }
-        }
+      this.bufferSize += 1;
+      this.bufferData.push({
+        name: name,
+        timeStamp: timeStamp,
+        payload: payload
+      });
 
-        return result;
-    }
+      if (this.bufferSize > MAX_BUFFER_SIZE) this.flush();
+    },
+    flush: function flush() {
+      if (this.bufferSize == 0) return;
 
-    resetBuffer() {
+      var result = EventBeacon.send(BASE_URL + "/log", this.bufferData);
+      if (result) {
         this.bufferSize = 0;
-        this.bufferFormData = new FormData();
+        this.bufferData = [];
+      }
     }
+  };
 
-    log(eventType, eventTimeStamp, eventPayload) {
-        if (DEBUG) {
-            console.log(`[${eventTimeStamp}] ${eventType}`);
-            if (eventPayload) console.log(eventPayload);
-        }
+  window.addEventListener(pageHideEvent, BufferedEventLogger.flush());
 
-        this.bufferSize += 1;
-        this.bufferFormData.append(eventTimeStamp, JSON.stringify({ eventType, eventPayload }));
-
-        if (this.bufferSize > MAX_BUFFER_SIZE) this.flush();
+  function addEventListernerToAll(
+    objects,
+    eventType,
+    eventLogName,
+    eventPayloadFun
+  ) {
+    for (i = 0; i < objects.length; i++) {
+      objects[i].addEventListener(
+        eventType,
+        BufferedEventLogger.addEvent(
+          eventLogName,
+          event.timeStamp,
+          eventPayloadFun(objects[i])
+        )
+      );
     }
+  }
+  /*
+    Register Navigator/Article/User information
+    */
 
-    flush() {
-        if (this.bufferSize == 0) return;
+  window.addEventListener(pageShowEvent, function(event) {
+    if (DEBUG) console.log("Connected to " + document.domain);
 
-        const result = EventBeacon.send(BASE_URL + '/log', this.bufferFormData);
-        if (result) this.resetBuffer();
-    }
-}
+    data = {
+      baseURI: document.baseURI,
+      URL: document.URL,
+      domain: document.domain,
+      referrer: document.referrer,
 
-const eventBeacon = new EventBeacon();
+      userAgent: navigator.userAgent,
 
-/*
-Register Navigator/Article/User information
-*/
-window.addEventListener('pageshow', (event) => {
-    if (DEBUG) console.log(`Connected to ${document.domain}`);
+      screenHeight: screen.height,
+      screenWidth: screen.width,
 
-    payload = {
-        visitId: VISIT_ID,
-        baseURI: document.baseURI,
-        URL: document.URL,
-        domain: document.domain,
-        referrer: document.referrer,
-
-        userAgent: navigator.userAgent,
-
-        screenHeight: screen.height,
-        screenWidth: screen.width,
-
-        windowHeight: window.innerHeight,
-        windowWidth: window.innerWidth
+      windowHeight: window.innerHeight,
+      windowWidth: window.innerWidth
     };
 
-    EventBeacon.send(BASE_URL + '/register', JSON.stringify(payload));
-});
+    EventBeacon.send(BASE_URL + "/register", data);
+  });
 
-/*
-Dwell Time Events
- */
+  /*
+   Dwell Time Events
+  */
 
-// visibility changes
-document.addEventListener('visibilitychange', (event) => {
-    let eventType = (document.hidden) ? 'documentHidden' : 'documentVisible';
+  // visibility changes
+  document.addEventListener(
+    "visibilitychange",
+    function(event) {
+      var eventType = document.hidden ? "documentHidden" : "documentVisible";
 
-    eventBeacon.log(eventType, event.timeStamp);
-}, false);
+      BufferedEventLogger.addEvent(eventType, event.timeStamp);
+    },
+    false
+  );
 
-// pageshow/pagehide
-window.addEventListener('pageshow', (event) => eventBeacon.log('windowPageShow', event.timeStamp));
-window.addEventListener('pagehide', (event) => eventBeacon.log('windowPageHide', event.timeStamp));
+  // pageshow/pagehide
+  window.addEventListener(pageShowEvent, function(event) {
+    return BufferedEventLogger.addEvent("windowPageShow", event.timeStamp);
+  });
+  window.addEventListener(pageHideEvent, function(event) {
+    return BufferedEventLogger.addEvent("windowPageHide", event.timeStamp);
+  });
 
-// focus/blur
-window.addEventListener('focus', (event) => eventBeacon.log('windowFocus', event.timeStamp));
-window.addEventListener('blur', (event) => eventBeacon.log('windowBlur', event.timeStamp));
+  // focus/blur
+  window.addEventListener("focus", function(event) {
+    return BufferedEventLogger.addEvent("windowFocus", event.timeStamp);
+  });
+  window.addEventListener("blur", function(event) {
+    return BufferedEventLogger.addEvent("windowBlur", event.timeStamp);
+  });
 
-// VIEWPORT TIME
+  // VIEWPORT TIME
 
-window.addEventListener('resize', (event) => {
-    eventBeacon.log('windowResize', event.timeStamp, [window.innerHeight, window.innerWidth]);
-});
+  window.addEventListener("resize", function(event) {
+    BufferedEventLogger.addEvent("windowResize", event.timeStamp, [
+      window.innerHeight,
+      window.innerWidth
+    ]);
+  });
 
-window.addEventListener('scroll', (event) => {
-    eventBeacon.log('windowScroll', event.timeStamp, window.scrollY);
-})
+  window.addEventListener("scroll", function(event) {
+    BufferedEventLogger.addEvent(
+      "windowScroll",
+      event.timeStamp,
+      window.scrollY
+    );
+  });
 
-// MEDIA EVENTS
+  // MEDIA EVENTS
 
-const allVideos = document.getElementsByTagName('video')
-const allAudios  = document.getElementsByTagName('audio');
+  var allVideos = document.getElementsByTagName("video");
+  var allAudios = document.getElementsByTagName("audio");
 
-for (i = 0; i < allVideos.length; i++) {
-    allVideos[i].addEventListener('play', (event) => eventBeacon.log('videoPlay', event.timeStamp))
-}
+  addEventListernerToAll(allVideos, "play", "videoPlay", function() {
+    return nil;
+  });
+  addEventListernerToAll(allVideos, "pause", "videoPause", function() {
+    return nil;
+  });
 
+  // TEXT SELECTION
 
-// TEXT SELECTION
-
-document.addEventListener('selectionchange', (event) => {
+  document.addEventListener("selectionchange", function(event) {
     // TODO: REDUCE AMOUNT OF EVENTS CONSIDERED
     // TODO: ADD POSITION INDICATOR TO EVENT
 
-    const selectedObject = window.getSelection();
+    var selectedObject = window.getSelection();
 
-    eventBeacon.log(
-        'windowSelection',
-        event.timeStamp,
-        {
-            size: selectedObject.focusOffset - selectedObject.anchorOffset,
-        }
-    );
+    // ignore selection events that equate to clicks
+    if (selectedObject.isCollapsed) return;
 
-});
+    BufferedEventLogger.addEvent("windowSelection", event.timeStamp, {
+      size: selectedObject.focusOffset - selectedObject.anchorOffset
+    });
+  });
 
-// MARKING EVENTS
+  // MARKING EVENTS
+
+  addEventListernerToAll(document.links, "click", "linkClick", function(aTag) {
+    return {};
+  });
+})();
