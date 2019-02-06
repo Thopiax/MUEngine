@@ -2,31 +2,70 @@
 // CONSTANTS
 const DEBUG=true;
 const BASE_URL='http://127.0.0.1:5000';
-const BATCH_SIZE=2;
+const MAX_BUFFER_SIZE=10;
 
-let VISIT_ID = 1;
+let VISIT_ID = "1";
 
 /*
 Setup Beacon to transmit data
  */
 if (typeof navigator.sendBeacon === 'undefined') {
     // TODO: find better alternative
-    navigator.sendBeacon = console.log;
+    navigator.sendBeacon = (_URL, msg) => {
+        console.log(msg);
+        return true;
+    };
 }
 
-function sendBeacon(URL, data) {
-    const result = navigator.sendBeacon(URL, data);
 
-    if (DEBUG) {
-        if (result) {
-            console.log(`[sendBeacon] Successfully sent events`);
-        } else {
-            console.error(`[sendBeacon] Error sending log data`);
-        }
+class EventBeacon {
+
+    constructor () {
+        this.resetBuffer();
+
+        document.addEventListener('pagehide', this.flush());
     }
 
-    return result;
+    static send(URL, data) {
+        const result = navigator.sendBeacon(URL, data);
+
+        if (DEBUG) {
+            if (result) {
+                console.log(`[Beacon#send] Successfully sent events`);
+            } else {
+                console.error(`[Beacon#send] Error sending log data`);
+            }
+        }
+
+        return result;
+    }
+
+    resetBuffer() {
+        this.bufferSize = 0;
+        this.bufferFormData = new FormData();
+    }
+
+    log(eventType, eventTimeStamp, eventPayload) {
+        if (DEBUG) {
+            console.log(`[${eventTimeStamp}] ${eventType}`);
+            if (eventPayload) console.log(eventPayload);
+        }
+
+        this.bufferSize += 1;
+        this.bufferFormData.append(eventTimeStamp, JSON.stringify({ eventType, eventPayload }));
+
+        if (this.bufferSize > MAX_BUFFER_SIZE) this.flush();
+    }
+
+    flush() {
+        if (this.bufferSize == 0) return;
+
+        const result = EventBeacon.send(BASE_URL + '/log', this.bufferFormData);
+        if (result) this.resetBuffer();
+    }
 }
+
+const eventBeacon = new EventBeacon();
 
 /*
 Register Navigator/Article/User information
@@ -41,34 +80,17 @@ window.addEventListener('pageshow', (event) => {
         domain: document.domain,
         referrer: document.referrer,
 
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+
+        screenHeight: screen.height,
+        screenWidth: screen.width,
+
+        windowHeight: window.innerHeight,
+        windowWidth: window.innerWidth
     };
 
-    sendBeacon(BASE_URL + '/register', JSON.stringify(payload));
+    EventBeacon.send(BASE_URL + '/register', JSON.stringify(payload));
 });
-
-let currentEventCount = 0;
-let eventFormData = new FormData();
-
-function flushEvents() {
-    const result = sendBeacon(BASE_URL + '/log', eventFormData);
-    if (result) {
-        currentEventCount = 0;
-        eventFormData = new FormData();
-    }
-}
-
-
-function logEvent(eventType, eventTimeStamp, eventPayload = {}) {
-    if (DEBUG) console.log(`[${eventTimeStamp}] ${eventType} = ${eventPayload}`);
-
-    currentEventCount += 1;
-    eventFormData.append(eventTimeStamp, JSON.stringify({ eventType, eventPayload }));
-
-    if (currentEventCount > BATCH_SIZE) flushEvents();
-}
-
-
 
 /*
 Dwell Time Events
@@ -78,23 +100,53 @@ Dwell Time Events
 document.addEventListener('visibilitychange', (event) => {
     let eventType = (document.hidden) ? 'documentHidden' : 'documentVisible';
 
-    logEvent(eventType, event.timeStamp);
+    eventBeacon.log(eventType, event.timeStamp);
 }, false);
 
 // pageshow/pagehide
-window.addEventListener('pageshow', (event) => logEvent('windowPageShow', event.timeStamp));
-window.addEventListener('pagehide', (event) => logEvent('windowPageHide', event.timeStamp));
+window.addEventListener('pageshow', (event) => eventBeacon.log('windowPageShow', event.timeStamp));
+window.addEventListener('pagehide', (event) => eventBeacon.log('windowPageHide', event.timeStamp));
 
 // focus/blur
-window.addEventListener('focus', (event) => logEvent('windowFocus', event.timeStamp));
-window.addEventListener('blur', (event) => logEvent('windowBlur', event.timeStamp));
+window.addEventListener('focus', (event) => eventBeacon.log('windowFocus', event.timeStamp));
+window.addEventListener('blur', (event) => eventBeacon.log('windowBlur', event.timeStamp));
 
 // VIEWPORT TIME
 
+window.addEventListener('resize', (event) => {
+    eventBeacon.log('windowResize', event.timeStamp, [window.innerHeight, window.innerWidth]);
+});
+
+window.addEventListener('scroll', (event) => {
+    eventBeacon.log('windowScroll', event.timeStamp, window.scrollY);
+})
+
 // MEDIA EVENTS
 
-// ARTICLE DATA
+const allVideos = document.getElementsByTagName('video')
+const allAudios  = document.getElementsByTagName('audio');
+
+for (i = 0; i < allVideos.length; i++) {
+    allVideos[i].addEventListener('play', (event) => eventBeacon.log('videoPlay', event.timeStamp))
+}
+
 
 // TEXT SELECTION
+
+document.addEventListener('selectionchange', (event) => {
+    // TODO: REDUCE AMOUNT OF EVENTS CONSIDERED
+    // TODO: ADD POSITION INDICATOR TO EVENT
+
+    const selectedObject = window.getSelection();
+
+    eventBeacon.log(
+        'windowSelection',
+        event.timeStamp,
+        {
+            size: selectedObject.focusOffset - selectedObject.anchorOffset,
+        }
+    );
+
+});
 
 // MARKING EVENTS
