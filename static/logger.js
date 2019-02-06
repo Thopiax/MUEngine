@@ -9,11 +9,25 @@ let VISIT_ID = "%s";
 /*
 Setup Beacon to transmit data
  */
+navigator.sendBeacon = undefined;
 if (typeof navigator.sendBeacon === 'undefined') {
-    // TODO: find better alternative
-    navigator.sendBeacon = (_URL, msg) => {
-        console.log(msg);
-        return true;
+    navigator.sendBeacon = (URL, payload) => {
+        let xhr = new XMLHttpRequest();
+
+        if ('withCredentials' in xhr) {
+            xhr.open('POST', URL, true);
+        } else if (typeof XDomainRequest != "undefined") {
+            // XDomainRequest for IE.
+            xhr = new XDomainRequest();
+            xhr.open('POST', URL);
+        } else {
+            return;
+        }
+
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+
+        xhr.send(payload);
     };
 }
 
