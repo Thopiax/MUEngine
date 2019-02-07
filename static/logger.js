@@ -10,10 +10,13 @@
 
   var visitId = "%s";
 
+  /*
+  Event logging & beaconing
+   */
   var sendBeacon = (function() {
     if ('sendBeacon' in navigator) {
         return function (URL, data) {
-            const payload = new Blob([JSON.stringify(data)], {type: 'text/plain; charset=UTF-8'})
+            var payload = new Blob([JSON.stringify(data)], {type: 'text/plain; charset=UTF-8'})
             return navigator.sendBeacon(URL, payload);
         }
     }
@@ -67,14 +70,14 @@
     bufferData: [],
     addEvent: function addEvent(name, timeStamp, payload) {
       if (DEBUG) {
-        console.log("[" + timeStamp + "] " + name);
+        console.log("[" + timeStamp + "] " + name + "; bufferSize = " + this.bufferSize);
         if (payload) console.log(payload);
       }
 
       this.bufferSize += 1;
       this.bufferData.push({
         name: name,
-        timeStamp: timeStamp,
+        timestamp: timeStamp,
         payload: payload
       });
 
@@ -83,31 +86,36 @@
     flush: function flush() {
       if (this.bufferSize == 0) return;
 
+      if (DEBUG) console.log('FLUSHING');
+
       var result = EventBeacon.send(BASE_URL + "/log", this.bufferData);
       if (result) {
         this.bufferSize = 0;
         this.bufferData = [];
       }
+
+      return true;
     }
   };
 
-  window.addEventListener(pageHideEvent, BufferedEventLogger.flush());
+  window.addEventListener('beforeunload', function (ev) {
+    BufferedEventLogger.addEvent("windowPageHide", event.timeStamp);
+    BufferedEventLogger.flush();
+    return true;
+  });
 
-  function addEventListernerToAll(
+  function addEventListenerToAll(
     objects,
     eventType,
     eventLogName,
     eventPayloadFun
   ) {
-    for (i = 0; i < objects.length; i++) {
-      objects[i].addEventListener(
-        eventType,
-        BufferedEventLogger.addEvent(
-          eventLogName,
-          event.timeStamp,
-          eventPayloadFun(objects[i])
-        )
-      );
+    for (var i = 0; i < objects.length; i += 1) {
+      objects[i].addEventListener(eventType, (function (index) {
+        return function (event) {
+          BufferedEventLogger.addEvent(eventLogName, event.timeStamp, eventPayloadFun(index, event))
+        }
+      })(i));
     }
   }
   /*
@@ -150,12 +158,8 @@
     false
   );
 
-  // pageshow/pagehide
   window.addEventListener(pageShowEvent, function(event) {
     return BufferedEventLogger.addEvent("windowPageShow", event.timeStamp);
-  });
-  window.addEventListener(pageHideEvent, function(event) {
-    return BufferedEventLogger.addEvent("windowPageHide", event.timeStamp);
   });
 
   // focus/blur
@@ -185,15 +189,31 @@
 
   // MEDIA EVENTS
 
-  var allVideos = document.getElementsByTagName("video");
-  var allAudios = document.getElementsByTagName("audio");
+  window.addEventListener("load", function() {
+    var allVideos = document.getElementsByTagName("video");
+    var allAudios = document.getElementsByTagName("audio");
 
-  addEventListernerToAll(allVideos, "play", "videoPlay", function() {
-    return nil;
+    addEventListenerToAll(allVideos, "loadedmetadata", "videoReady", function(index, event) {
+      var video = allVideos[index];
+      var videoProps = video.getBoundingClientRect();
+
+      return {
+        id: index,
+        src: event.target.currentSrc,
+        top: videoProps.top,
+        left: videoProps.left,
+        width: videoProps.width,
+        height: videoProps.height
+      };
+    });
+    addEventListenerToAll(allVideos, "play", "videoPlay", function(index, event) {
+      return { id: index, time: event.target.currentTime };
+    });
+    addEventListenerToAll(allVideos, "pause", "videoPause", function(index, event) {
+      return { id: index, time: event.target.currentTime };
+    });
   });
-  addEventListernerToAll(allVideos, "pause", "videoPause", function() {
-    return nil;
-  });
+
 
   // TEXT SELECTION
 
@@ -211,9 +231,14 @@
     });
   });
 
+  // SHARING EVENTS
+
+
   // MARKING EVENTS
 
-  addEventListernerToAll(document.links, "click", "linkClick", function(aTag) {
-    return {};
+  addEventListenerToAll(document.links, "click", "linkClick", function(index) {
+    return {
+      href: document.links[index].href
+    };
   });
 })();
