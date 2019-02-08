@@ -4,7 +4,7 @@
 
   var DEBUG = true;
 
-  var BASE_URL = "http://127.0.0.1:5000";
+  var BASE_URL = "http://127.0.0.1:8080";
   var VISIT_URL = BASE_URL + "/visit";
   var EVENT_URL = BASE_URL + "/event";
 

@@ -3,9 +3,12 @@ services:
   db:
     image: timescale/timescaledb:latest-pg9.6
     ports:
-      - "6868:5432"
+      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=muepy_dev
     volumes:
       - /var/lib/postgres

@@ -2,8 +2,10 @@ import os
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 
-from muengine import app, db
+from muengine.db import db
+from muengine import create_app
 
+app = create_app()
 
 app.config.from_object(os.getenv('APP_SETTINGS'))
 
