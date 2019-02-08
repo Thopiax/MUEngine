@@ -32,10 +32,10 @@ class TestingConfig(Config):
 
 
 CONFIG = {
-    'DEVELOPMENT': DevelopmentConfig,
-    'TESTING': TestingConfig,
-    'STAGING': StagingConfig,
-    'PRODUCTION': ProductionConfig
+    'development': DevelopmentConfig,
+    'testing': TestingConfig,
+    'staging': StagingConfig,
+    'production': ProductionConfig
 }.get(os.getenv('FLASK_ENV'))
 
 if not CONFIG:

@@ -1,7 +1,7 @@
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.sql.functions import func
 
-from muengine import db
+from muengine.db import db
 
 
 class Event(db.Model):

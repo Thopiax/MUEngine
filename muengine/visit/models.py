@@ -1,6 +1,6 @@
 from sqlalchemy.sql.functions import func
 
-from muengine import db
+from muengine.db import db
 
 
 class Visit(db.Model):
@@ -12,8 +12,6 @@ class Visit(db.Model):
     URL = db.Column(db.String())
     domain = db.Column(db.String())
     referrer = db.Column(db.String())
-
-    test = db.Column(db.Integer)
 
     navigation_start = db.Column(db.DateTime())
 
