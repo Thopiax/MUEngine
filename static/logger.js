@@ -131,6 +131,8 @@
       domain: document.domain,
       referrer: document.referrer,
 
+      navigationStart: performance.timing.navigationStart,
+
       userAgent: navigator.userAgent,
 
       screenHeight: screen.height,

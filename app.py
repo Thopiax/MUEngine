@@ -16,69 +16,71 @@ from models import Visit, Event
 
 @app.route('/logger')
 def fetch_logger():
-  logger = util.load_logger_script()
-  visit = Visit()
+    logger = util.load_logger_script()
+    visit = Visit()
 
-  db.session.add(visit)
-  db.session.commit()
+    db.session.add(visit)
+    db.session.commit()
 
-  return logger % visit.id
+    return logger % visit.id
 
 
 @app.route('/register', methods=['POST'])
 def register_visit():
-  payload = request.get_json(True)
+    payload = request.get_json(True)
 
-  # TODO: HANDLE ERROR
-  visit = Visit.query.get(payload["visitId"])
+    # TODO: HANDLE ERROR
+    visit = Visit.query.get(payload["visitId"])
 
-  data = payload["data"]
+    data = payload["data"]
 
-  visit.baseURI = data["baseURI"]
-  visit.URL = data["URL"]
-  visit.domain = data["domain"]
-  visit.referrer = data["referrer"]
+    visit.baseURI = data["baseURI"]
+    visit.URL = data["URL"]
+    visit.domain = data["domain"]
+    visit.referrer = data["referrer"]
 
-  visit.user_agent = data["userAgent"]
+    visit.user_agent = data["userAgent"]
 
-  # TODO: HANDLE ERROR
-  visit.screen_height = int(data["screenHeight"])
-  visit.screen_width = int(data["screenWidth"])
+    visit.navigation_start = datetime.datetime.fromtimestamp(int(data["navigationStart"])/1000.0)
 
-  visit.initial_window_height = int(data["windowHeight"])
-  visit.initial_window_width = int(data["windowWidth"])
+    # TODO: HANDLE ERROR
+    visit.screen_height = int(data["screenHeight"])
+    visit.screen_width = int(data["screenWidth"])
 
-  db.session.commit()
+    visit.initial_window_height = int(data["windowHeight"])
+    visit.initial_window_width = int(data["windowWidth"])
 
-  return "Success"
+    db.session.commit()
+
+    return "Success"
 
 
 @app.route('/log', methods=['POST'])
 def log_events():
-  # TODO: HANDLE ERROR
-  payload = request.get_json(True)
+    # TODO: HANDLE ERROR
+    payload = request.get_json(True)
 
-  # TODO: HANDLE ERROR
-  visit_id = int(payload["visitId"])
+    # TODO: HANDLE ERROR
+    visit_id = int(payload["visitId"])
 
-  app.logger.debug(payload["data"])
+    app.logger.debug(payload["data"])
 
-  # TODO: HANDLE ERROR
-  for event_struct in payload["data"]:
-    event = Event(
-      visit_id=visit_id,
-      timestamp=float(event_struct["timestamp"]),
-      name=event_struct["name"],
-      payload=event_struct.get("payload")
-    )
+    # TODO: HANDLE ERROR
+    for event_struct in payload["data"]:
+      event = Event(
+        visit_id=visit_id,
+        timestamp=float(event_struct["timestamp"]),
+        name=event_struct["name"],
+        payload=event_struct.get("payload")
+      )
 
-    db.session.add(event)
+      db.session.add(event)
 
-  db.session.commit()
+    db.session.commit()
 
-  return "Success"
+    return "Success"
 
 
 if __name__ == '__main__':
-  app.run()
+    app.run()
 

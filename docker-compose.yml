@@ -1,7 +1,7 @@
 version: '2'
 services:
   db:
-    image: postgres:9.5-alpine
+    image: timescale/timescaledb:latest-pg9.6
     ports:
       - "6868:5432"
     environment:
