@@ -1,8 +1,13 @@
 (function() {
 
   // CONSTANTS
+
   var DEBUG = true;
+
   var BASE_URL = "http://127.0.0.1:5000";
+  var VISIT_URL = BASE_URL + "/visit";
+  var EVENT_URL = BASE_URL + "/event";
+
   var MAX_BUFFER_SIZE = 64;
 
   var pageShowEvent = "pageshow" in window ? "pageshow" : "load";
@@ -88,7 +93,7 @@
 
       if (DEBUG) console.log('FLUSHING');
 
-      var result = EventBeacon.send(BASE_URL + "/log", this.bufferData);
+      var result = EventBeacon.send(EVENT_URL + "/log", this.bufferData);
       if (result) {
         this.bufferSize = 0;
         this.bufferData = [];
@@ -142,7 +147,7 @@
       windowWidth: window.innerWidth
     };
 
-    EventBeacon.send(BASE_URL + "/register", data);
+    EventBeacon.send(VISIT_URL + "/register", data);
   });
 
   /*
