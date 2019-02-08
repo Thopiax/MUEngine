@@ -9,12 +9,13 @@ unittest:
   stage: test
   image: python:3.7.1
   services:
-    - "timescale/timescaledb:latest-pg9.6"
+    - name: "timescale/timescaledb:latest-pg9.6"
+      alias: db
   variables:
     POSTGRES_DB: muepy_test
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: postgres
-    DATABASE_URL: postgresql://postgres:postgres@localhost:5432/muepy_test
+    DATABASE_URL: postgresql://postgres:postgres@db:5432/muepy_test
   script:
     - python -m pytest tests
 
