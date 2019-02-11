@@ -8,25 +8,30 @@ services:
   - name: timescale/timescaledb:latest-pg9.6
     alias: db
 
-variables:
-  POSTGRES_DB: "muepy_test"
-  POSTGRES_HOST: "db"
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: "postgres"
-  POSTGRES_PASSWORD: "postgres"
-
 before_script:
   - pip install -r requirements.txt
-  - python manage.py db upgrade
 
 unittest:
   stage: test
   script:
+    - python manage.py db upgrade
     - python -m pytest tests
+  variables:
+    POSTGRES_DB: "muepy_test"
+    POSTGRES_HOST: "db"
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: "postgres"
+    POSTGRES_PASSWORD: "postgres"
+  tags:
+    - test
 
 deploy:
   stage: deploy
-  script: git push production HEAD:master
+  script:
+    - python manage.py db upgrade
+    - git push azure HEAD:master
   environment:
     name: production
+  only:
+    - master
 
