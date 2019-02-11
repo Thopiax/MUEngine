@@ -26,4 +26,3 @@ def log_events():
 
     db.session.commit()
 
-    return "Success"
