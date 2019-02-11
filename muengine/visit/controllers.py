@@ -25,8 +25,6 @@ def logger():
 def register():
     payload = request.get_json(True)
 
-    print(payload)
-    print("VISIT_ID=" + payload["visitId"])
     # TODO: HANDLE ERROR
     visit = Visit.query.get(payload["visitId"])
 
@@ -54,6 +52,8 @@ def register():
         return util.respond_with_error()
     except exc.SQLAlchemyError as err:
         current_app.logger.error("[/visit/register] Error when committing to database", error=err, request=request)
+
+        return util.respond_with_error()
 
 
     return util.respond_with_success()
