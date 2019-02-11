@@ -1,5 +1,4 @@
-from muengine import create_app
+from muengine import app
 
 if __name__=='__main__':
-    app = create_app()
     app.run()

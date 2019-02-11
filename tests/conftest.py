@@ -1,9 +1,7 @@
 import pytest
 
-from muengine import create_app
+from muengine import app
 
 @pytest.fixture
 def client():
-    app = create_app()
     return app.test_client()
-
