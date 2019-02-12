@@ -11,7 +11,4 @@ The script (located at [`muengine/logger.js`](https://github.com/Thopiax/MUEngin
 
 It transmits data to two server endpoints:
   - `/visit/register`: stores data that is characteristic of the individual visit such as visited URL, referrer, initial navigation time...
-  - `/event/log`: logs HTML events such as scrolling, highlighting or playing multimedia.
-
-
-### Logger Script
+  - `/event/log`: logs HTML events such as scrolling, highlighting or playing multimedia...
