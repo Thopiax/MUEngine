@@ -3,7 +3,7 @@
 
 A centralized server to collect anonymous web log data through event listeners.
 
-## How it works?
+## How it works
 
 A small Flask application provides a listener script from the `/visit/logger` endpoint.
 
@@ -12,3 +12,5 @@ The script (located at [`muengine/logger.js`](https://github.com/Thopiax/MUEngin
 It transmits data to two server endpoints:
   - `/visit/register`: stores data that is characteristic of the individual visit such as visited URL, referrer, initial navigation time...
   - `/event/log`: logs HTML events such as scrolling, highlighting or playing multimedia...
+  
+ 
